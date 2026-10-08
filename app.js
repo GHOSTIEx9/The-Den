@@ -452,7 +452,7 @@ function drawScope(spec) {
   g.addColorStop(0, "rgba(82,255,140,0)"); g.addColorStop(1, "rgba(82,255,140,.16)");
   sctx.fillStyle = g; sctx.fillRect(sx - 40, 0, 40, h);
 }
-(function loop(ts) {
+function loop(ts) {
   const t = ts / 1000;
   radioEl.volume += (volTarget - radioEl.volume) * 0.2;
   renderKnob();
@@ -460,7 +460,8 @@ function drawScope(spec) {
   VIZ[vizId](spec, t);
   drawScope(spec);
   requestAnimationFrame(loop);
-})(0);
+}
+requestAnimationFrame(loop);
 
 /* ============ DIAL ============ */
 const dialScale = $("#dialScale");
@@ -541,7 +542,6 @@ $("#knobPower").onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e
 $("#btnPrevTune").onclick = () => tuneTo(stationIdx < 0 ? 0 : stationIdx - 1, true);
 $("#btnNextTune").onclick = () => tuneTo(stationIdx < 0 ? 0 : stationIdx + 1, true);
 
-/* volume knob: drag vertically or scroll */
 /* volume knob: true rotary drag + fine scroll + eased motion */
 let volTarget = 0.8;
 function renderKnob() {
@@ -646,8 +646,8 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === " ") { e.preventDefault(); powerToggle(); }
   else if (e.key === "ArrowRight") tuneTo(stationIdx < 0 ? 0 : stationIdx + 1, true);
   else if (e.key === "ArrowLeft") tuneTo(stationIdx < 0 ? 0 : stationIdx - 1, true);
-  else if (e.key === "ArrowUp") { e.preventDefault(); setVol(radioEl.volume + 0.05, true); }
-  else if (e.key === "ArrowDown") { e.preventDefault(); setVol(radioEl.volume - 0.05, true); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); setVol(volTarget + 0.05, true); }
+  else if (e.key === "ArrowDown") { e.preventDefault(); setVol(volTarget - 0.05, true); }
   else if (e.key >= "1" && e.key <= "9") tuneTo(+e.key - 1, true);
   else if (e.key === "0") tuneTo(9, true);
 });
