@@ -19,7 +19,7 @@
 
 <header class="topbar">
   <img src="logo.svg" alt="the den" class="brand-logo" />
-  <div class="viz-picker" id="vizPicker" title="Visualizer background"></div>
+  <div class="viz-picker" id="vizPicker" title="Living room"></div>
 </header>
 
 <main id="ui">
@@ -44,6 +44,10 @@
           <span id="lcdClock">--:--</span>
         </div>
         <div class="lcd-status" id="lcdStatus">press power ⏻</div>
+      </div>
+      <div class="scope-wrap">
+        <canvas id="scope" width="600" height="120"></canvas>
+        <span class="scope-label">signal</span>
       </div>
     </div>
 
@@ -77,7 +81,7 @@
     </div>
   </div>
 
-  <p class="hint">space — play/pause · ←/→ — station · ↑/↓ — volume · H — hide</p>
+  <p class="hint">space — power · ←/→ — station · ↑/↓ — volume · 1–0 — presets · H — hide</p>
   <p class="credit">live streams via SomaFM (listener-supported) · press a preset to play</p>
 </main>
 
