@@ -471,20 +471,24 @@ function autoPairSound(id) {
 
 /* ============ AUDIO ============ */
 let AC = null, master = null, musicBus = null;
-let noiseBuf = null;
+let noiseBuf = null, whiteBuf = null, brownBuf = null;
 const ambNodes = {};
 const AMBIENTS = [
-  { key: "rain", label: "rain", icon: "☔", vol: 60, base: .5 },
-  { key: "thunder", label: "thunder", icon: "⛈", vol: 60, base: .55 },
-  { key: "fire", label: "fireplace", icon: "🔥", vol: 55, base: .55 },
-  { key: "ocean", label: "ocean", icon: "🌊", vol: 50, base: .6 },
-  { key: "wind", label: "forest wind", icon: "🍃", vol: 45, base: .5 },
-  { key: "birds", label: "birds", icon: "🐦", vol: 40, base: .4 },
-  { key: "night", label: "night crickets", icon: "🦉", vol: 40, base: .3 },
-  { key: "cafe", label: "café murmur", icon: "☕", vol: 35, base: .4 },
-  { key: "brown", label: "brown noise", icon: "🟤", vol: 50, base: .6 },
-  { key: "white", label: "white noise", icon: "⚪", vol: 30, base: .35 },
+  { key: "rain", label: "rain", icon: "☔", vol: 60, base: .85, src: "https://upload.wikimedia.org/wikipedia/commons/d/dc/Bourne_woods_rain_2020-05-10_0800.mp3" },
+  { key: "thunder", label: "thunder", icon: "⛈", vol: 60, base: .9, oneshot: "https://upload.wikimedia.org/wikipedia/commons/1/1b/Thunder.wav" },
+  { key: "fire", label: "fireplace", icon: "🔥", vol: 55, base: .9, src: "https://archive.org/download/fire-sound-effects-crackle-burn-flames-free-cc-0-sfx/api%201.mp3" },
+  { key: "ocean", label: "ocean", icon: "🌊", vol: 50, base: .9, src: "https://archive.org/download/2-tropical-beach-ambience-3-hours-of-peaceful-ocean-waves-4-k-video-128-kbps/2%20Tropical%20Beach%20Ambience_%203%20Hours%20of%20Peaceful%20Ocean%20Waves%20%284K%20Video%29%20%28128%20kbps%29.mp3" },
+  { key: "wind", label: "forest wind", icon: "🍃", vol: 45, base: .9, src: "https://upload.wikimedia.org/wikipedia/commons/d/d0/Wind_sounds_2020-05-10_1625.mp3" },
+  { key: "birds", label: "dawn birds", icon: "🐦", vol: 40, base: .85, src: "https://upload.wikimedia.org/wikipedia/commons/9/9a/Dawn_Chorus_2020-05-06_0500.mp3" },
+  { key: "night", label: "night crickets", icon: "🦉", vol: 40, base: .9, src: "https://archive.org/download/waterberge-0-nighttime-ambience-crickets-bats/Waterberge%200%20Nighttime%20Ambience%20-%20Crickets%2C%20bats.mp3" },
+  { key: "cafe", label: "café murmur", icon: "☕", vol: 35, base: .9, src: "https://archive.org/download/aporee_4975_6361/venloerKoernerCafeDaPaulo180909.mp3" },
+  { key: "brown", label: "brown noise", icon: "🟤", vol: 50, base: .5, noise: "brown" },
+  { key: "white", label: "white noise", icon: "⚪", vol: 30, base: .25, noise: "white" },
 ];
+// entries exist from load — no AudioContext needed for streamed files
+for (const a of AMBIENTS) {
+  ambNodes[a.key] = { el: null, gain: null, on: false, vol: a.vol / 100, base: a.base, kind: a.oneshot ? "oneshot" : (a.src ? "file" : "noise"), timer: null };
+}
 function ensureAudio() {
   if (AC) { if (AC.state === "suspended") AC.resume(); return; }
   AC = new (window.AudioContext || window.webkitAudioContext)();
@@ -495,92 +499,100 @@ function ensureAudio() {
   const wet = AC.createGain(); wet.gain.value = .25;
   delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(musicBus);
   window._delaySend = delay;
-  noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
-  const d = noiseBuf.getChannelData(0);
-  let lastV = 0;
-  for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; lastV = (lastV + .02 * w) / 1.02; d[i] = (w * .5 + lastV * 3) * .5; }
-  const defs = {
-    rain: { type: "highpass", freq: 2200, q: .6, rate: 1.4 },
-    thunder: { type: "lowpass", freq: 180, q: .4, rate: .5 },
-    fire: { type: "lowpass", freq: 520, q: .4, rate: .7 },
-    ocean: { type: "lowpass", freq: 700, q: .5, rate: .7, lfo: .12 },
-    wind: { type: "bandpass", freq: 480, q: .8, rate: .7, lfo: .07 },
-    birds: { type: "bandpass", freq: 2800, q: 1.2, rate: .5 },
-    night: { type: "highpass", freq: 5200, q: 1, rate: 1.4 },
-    cafe: { type: "lowpass", freq: 420, q: .4, rate: .7 },
-    brown: { type: "lowpass", freq: 300, q: .3, rate: .4 },
-    white: { type: "bandpass", freq: 1200, q: .3, rate: 1 },
-  };
+  // true white + true brown noise buffers (science-noise layers + synth hats)
+  whiteBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
+  const wd = whiteBuf.getChannelData(0);
+  for (let i = 0; i < wd.length; i++) wd[i] = Math.random() * 2 - 1;
+  brownBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
+  const bd = brownBuf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < bd.length; i++) { const w = Math.random() * 2 - 1; last = (last + .02 * w) / 1.02; bd[i] = last * 3.5; }
+  noiseBuf = whiteBuf;
+  // generated science-noise layers only — nature layers stream real recordings
   for (const a of AMBIENTS) {
-    const def = defs[a.key];
-    const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
-    src.playbackRate.value = def.rate;
-    const f = AC.createBiquadFilter(); f.type = def.type; f.frequency.value = def.freq; f.Q.value = def.q;
+    if (!a.noise) continue;
+    const src = AC.createBufferSource(); src.buffer = a.noise === "brown" ? brownBuf : whiteBuf; src.loop = true;
+    const f = AC.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = a.noise === "brown" ? 900 : 9000;
     const g = AC.createGain(); g.gain.value = 0;
     src.connect(f); f.connect(g); g.connect(master); src.start();
-    ambNodes[a.key] = { gain: g, on: false, vol: a.vol / 100, base: a.base };
-  }
-  setInterval(() => { if (ambNodes.fire?.on && Math.random() < .6) crackle(); }, 140);
-  setInterval(() => { if (ambNodes.night?.on) chirp(4200, .05); }, 1100);
-  setInterval(() => { if (ambNodes.birds?.on && Math.random() < .7) birdsong(); }, 1600);
-  setInterval(() => { if (ambNodes.thunder?.on && Math.random() < .5) rumble(); }, 4200);
-  setInterval(() => { if (ambNodes.cafe?.on && Math.random() < .4) murmur(); }, 2100);
-}
-function burst(freq, q, vol, dur, rate = 2) {
-  const t = AC.currentTime;
-  const o = AC.createBufferSource(); o.buffer = noiseBuf; o.playbackRate.value = rate;
-  const f = AC.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
-  const g = AC.createGain();
-  g.gain.setValueAtTime(vol, t);
-  g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-  o.connect(f); f.connect(g); g.connect(master);
-  o.start(t, rand(0, 1.5), dur + .05); o.stop(t + dur + .1);
-}
-function crackle() { burst(rand(1200, 4200), 2, rand(.05, .3) * (ambNodes.fire.vol ?? .5), rand(.03, .12), rand(1.5, 3)); }
-function chirp(f0, vol) {
-  const t = AC.currentTime;
-  for (let k = 0; k < 3; k++) {
-    const o = AC.createOscillator(); o.type = "sine"; o.frequency.value = f0 + rand(-200, 200);
-    const g = AC.createGain(); g.gain.setValueAtTime(0, t + k * .09);
-    g.gain.linearRampToValueAtTime(vol * (ambNodes.night.vol ?? .4) * 2, t + k * .09 + .02);
-    g.gain.linearRampToValueAtTime(0, t + k * .09 + .07);
-    o.connect(g); g.connect(master); o.start(t + k * .09); o.stop(t + k * .09 + .1);
+    ambNodes[a.key].gain = g;
   }
 }
-function birdsong() {
-  const t = AC.currentTime, f0 = rand(2400, 3600);
-  const n = 2 + Math.floor(Math.random() * 3);
-  for (let k = 0; k < n; k++) {
-    const o = AC.createOscillator(); o.type = "sine";
-    o.frequency.setValueAtTime(f0 + rand(-300, 500), t + k * .14);
-    o.frequency.exponentialRampToValueAtTime(f0 * rand(.7, .9), t + k * .14 + .12);
-    const g = AC.createGain(); g.gain.setValueAtTime(0, t + k * .14);
-    g.gain.linearRampToValueAtTime(.06 * (ambNodes.birds.vol ?? .4) * 2, t + k * .14 + .03);
-    g.gain.linearRampToValueAtTime(0, t + k * .14 + .13);
-    o.connect(g); g.connect(master); o.start(t + k * .14); o.stop(t + k * .14 + .16);
-  }
+/* ---- real recording layers ---- */
+function layerTarget(n) { return Math.min(1, n.base * Math.pow(Math.max(0, n.vol), 1.4) * 1.6); }
+function fadeEl(el, to, ms, done) {
+  clearInterval(el._fade);
+  const from = el.volume, t0 = performance.now();
+  el._fade = setInterval(() => {
+    const k = Math.min(1, (performance.now() - t0) / ms);
+    el.volume = from + (to - from) * k;
+    if (k >= 1) { clearInterval(el._fade); done && done(); }
+  }, 90);
 }
-function rumble() {
-  const t = AC.currentTime, dur = rand(1.2, 2.6);
-  const o = AC.createBufferSource(); o.buffer = noiseBuf; o.playbackRate.value = .3;
-  const f = AC.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 120;
-  const g = AC.createGain();
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(.5 * (ambNodes.thunder.vol ?? .5), t + dur * .3);
-  g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-  o.connect(f); f.connect(g); g.connect(master);
-  o.start(t, rand(0, 1), dur + .1); o.stop(t + dur + .2);
+function markChip(key, cls, on) {
+  document.querySelectorAll(`.chip[data-ambient="${key}"]`).forEach((c) => {
+    if (cls === "on") c.classList.toggle("on", on);
+    else c.classList.toggle(cls, on);
+  });
 }
-function murmur() { burst(rand(300, 900), 1.5, rand(.02, .07), rand(.2, .5), .6); }
+function playFileLayer(key) {
+  const n = ambNodes[key], def = AMBIENTS.find((a) => a.key === key);
+  if (!n.el) {
+    const el = new Audio(); el.src = def.src; el.loop = true; el.preload = "auto"; el.volume = 0;
+    n.el = el;
+    markChip(key, "loading", true);
+    el.addEventListener("error", () => { markChip(key, "loading", false); markChip(key, "error", true); n.on = false; markChip(key, "on", false); });
+  } else markChip(key, "loading", true);
+  n.el.play().then(() => {
+    if (!n.on) { n.el.pause(); return; }
+    markChip(key, "loading", false); markChip(key, "error", false);
+    fadeEl(n.el, layerTarget(n), 1800);
+  }).catch((err) => {
+    markChip(key, "loading", false);
+    if (err && err.name === "NotAllowedError") {
+      // autoplay policy: retry on first tap
+      markChip(key, "loading", true);
+      document.addEventListener("pointerdown", () => { if (n.on) playFileLayer(key); }, { once: true });
+    } else { markChip(key, "error", true); n.on = false; markChip(key, "on", false); }
+  });
+}
+function stopFileLayer(key, ms = 1200, done) {
+  const n = ambNodes[key];
+  if (!n.el || n.el.paused) { done && done(); return; }
+  fadeEl(n.el, 0, ms, () => { n.el.pause(); done && done(); });
+}
+function scheduleThunder() {
+  const n = ambNodes.thunder;
+  clearTimeout(n.timer);
+  if (!n.on) return;
+  n.timer = setTimeout(() => {
+    if (!ambNodes.thunder.on) return;
+    const def = AMBIENTS.find((a) => a.key === "thunder");
+    const el = new Audio(); el.src = def.oneshot; el.preload = "auto"; el.volume = 0;
+    el.play().then(() => {
+      try { el.currentTime = rand(0, Math.max(0, (el.duration || 30) - 8)); } catch {}
+      fadeEl(el, rand(.25, .55) * (ambNodes.thunder.vol + .3), 1500);
+      el.onended = () => el.remove();
+    }).catch(() => {});
+    scheduleThunder();
+  }, rand(7000, 22000));
+}
 
 function setAmbient(key, on, vol) {
-  ensureAudio();
   const n = ambNodes[key]; if (!n) return;
-  n.on = on ?? !n.on;
+  if (on === undefined) on = !n.on;
+  n.on = on;
   if (vol !== undefined) n.vol = vol;
-  n.gain.gain.cancelScheduledValues(AC.currentTime);
-  n.gain.gain.linearRampToValueAtTime(n.on ? n.base * (0.3 + n.vol) : 0, AC.currentTime + 1.2);
-  document.querySelectorAll(`.chip[data-ambient="${key}"]`).forEach((c) => c.classList.toggle("on", n.on));
+  markChip(key, "on", on);
+  markChip(key, "error", false);
+  if (n.kind === "file") { on ? playFileLayer(key) : stopFileLayer(key); }
+  else if (n.kind === "oneshot") { on ? scheduleThunder() : clearTimeout(n.timer); }
+  else {
+    ensureAudio();
+    const t = on ? layerTarget(n) * .5 : 0;
+    n.gain.gain.cancelScheduledValues(AC.currentTime);
+    n.gain.gain.linearRampToValueAtTime(t, AC.currentTime + 1.2);
+  }
   syncHash();
 }
 const mixerGroup = $("#mixerGroup");
@@ -597,12 +609,15 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("input", (e) => {
   const s = e.target.closest("input[data-vol]");
-  if (!s || !AC) return;
+  if (!s) return;
+  if (s.id === "musicVol") return;
   const n = ambNodes[s.dataset.vol]; if (!n) return;
   n.vol = s.value / 100;
-  if (n.on) {
+  if (!n.on) { syncHash(); return; }
+  if (n.kind === "file" && n.el) n.el.volume = layerTarget(n);
+  if (n.kind === "noise" && AC && n.gain) {
     n.gain.gain.cancelScheduledValues(AC.currentTime);
-    n.gain.gain.linearRampToValueAtTime(n.base * (0.3 + n.vol), AC.currentTime + .3);
+    n.gain.gain.linearRampToValueAtTime(layerTarget(n) * .5, AC.currentTime + .3);
   }
   syncHash();
 });
@@ -635,13 +650,7 @@ function hat(t, vol = .05) {
   const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0005, t + .05);
   s.connect(f); f.connect(g); g.connect(musicBus); s.start(t, rand(0, 1), .08);
 }
-const TRACKS = [
-  { id: "lofi", title: "den lofi — endless original", sub: "generative · safe for sleep & study" },
-  { id: "satie", title: "Gymnopédie No.1 — Satie", sub: "1888 · public domain" },
-  { id: "canon", title: "Canon in D — Pachelbel", sub: "1694 · public domain" },
-  { id: "brahms", title: "Brahms' Lullaby", sub: "1868 · public domain" },
-  { id: "moon", title: "moonlight reverie — original", sub: "generative ambient · sleep" },
-];
+/* stations live in STATIONS below (garden radio) */
 let trackIdx = 0, musicOn = false, schedTimer = null, nextT = 0, step = 0;
 const LOFI_CHORDS = [[57, 60, 64, 67], [53, 57, 60, 65], [48, 55, 60, 64], [55, 59, 62, 67]];
 function scheduleLofi(t, s) {
@@ -661,74 +670,93 @@ const SATIE = [[0, 62, 2], [0, 59, 2], [0, 55, 4], [4, 62, 2], [4, 59, 2], [4, 5
 const CANON_BASS = [38, 45, 47, 42, 43, 38, 43, 45];
 const CANON_MEL = [74, 76, 78, 76, 78, 81, 79, 76, 74];
 const BRAHMS_MEL = [[0, 67, 1], [1, 67, 1], [2, 72, 1.5], [3.5, 69, .5], [4, 71, 1], [5, 71, 1], [6, 69, 2], [8, 71, 1], [9, 71, 1], [10, 67, 1.5], [11.5, 69, .5], [12, 71, 1], [13, 67, 1], [14, 67, 2]];
+function currentStation() { return STATIONS[trackIdx]; }
 function scheduleTrack(t, s) {
-  const id = TRACKS[trackIdx].id;
-  if (id === "lofi") return scheduleLofi(t, s);
-  if (id === "moon") {
-    if (s % 4 === 0) { const scale = [57, 60, 62, 64, 67, 69, 72]; piano(scale[Math.floor(Math.random() * scale.length)], t, 5, .09, "sine"); }
-    if (s % 8 === 0) bass(45, t, 6, .07);
-    return .8;
-  }
-  if (id === "satie") {
-    const ev = SATIE[s % SATIE.length];
-    if (ev[0] === s % 16) piano(ev[1], t, 2.2, .16);
-    if (s % 16 === 0) bass(43, t, 4, .1);
-    return .55;
-  }
-  if (id === "canon") {
-    if (s % 2 === 0) bass(CANON_BASS[(s / 2) % 8 | 0], t, 1.6, .12);
-    if (s % 2 === 0) piano(CANON_MEL[(s / 2) % CANON_MEL.length] | 0, t, 1.4, .1);
-    if (s % 4 === 2) hat(t, .02);
-    return .5;
-  }
-  if (id === "brahms") {
-    const beat = s * .5 % 16;
-    BRAHMS_MEL.forEach(([b, n, d]) => { if (Math.abs(b - beat) < .01) piano(n, t, d * .9, .15); });
-    if (s % 4 === 0) bass(48 - (s % 8 === 0 ? 0 : 5), t, 1.6, .08);
-    return .5;
-  }
-  return .5;
+  if (currentStation().live) return .5; // live stream plays itself
+  return scheduleLofi(t, s); // offline synth fallback
 }
 function scheduler() {
-  if (!musicOn) return;
+  if (!musicOn || currentStation().live || !AC) return;
   while (nextT < AC.currentTime + .6) { nextT += scheduleTrack(nextT, step); step++; }
 }
+/* ---- garden radio: live SomaFM streams (verified 128k mp3) + offline synth ---- */
+const STATIONS = [
+  { id: "7soul", title: "Seven Inch Soul", sub: "vintage soul 45s · live", live: true },
+  { id: "seventies", title: "Left Coast 70s", sub: "seventies classics · live", live: true },
+  { id: "bootliquor", title: "Boot Liquor", sub: "americana roots · live", live: true },
+  { id: "sonicuniverse", title: "Sonic Universe", sub: "soul-jazz · live", live: true },
+  { id: "deepspaceone", title: "Deep Space One", sub: "deep ambient · live", live: true },
+  { id: "dronezone", title: "Drone Zone", sub: "drone sleep · live", live: true },
+  { id: "synth", title: "den offline lofi", sub: "synthesized · works offline", live: false },
+];
+const radioEl = new Audio(); radioEl.preload = "none";
+function setRadioStatus(msg) { const el = $("#radioStatus"); if (el) el.textContent = msg || ""; }
+function paintMusicBtn() {
+  const b = $("#btnMusic"), st = currentStation();
+  b.classList.toggle("playing", musicOn);
+  b.innerHTML = musicOn
+    ? `⏸ ${st.live ? '<span class="live-badge">live</span>' : ""}${st.title}`
+    : "▶ play garden radio";
+}
+function stopRadio() {
+  try { radioEl.pause(); } catch {}
+  clearInterval(schedTimer); musicOn = false;
+  setRadioStatus(""); paintMusicBtn();
+}
 function setTrack(i, autoplay = true) {
-  trackIdx = (i + TRACKS.length) % TRACKS.length; step = 0;
-  if (AC) nextT = AC.currentTime + .1;
+  stopRadio();
+  trackIdx = (i + STATIONS.length) % STATIONS.length; step = 0;
   $$(".track").forEach((el, k) => el.classList.toggle("on", k === trackIdx));
-  if (autoplay && !musicOn) toggleMusic(true);
-  syncHash();
+  if (autoplay) toggleMusic(true);
+  else { paintMusicBtn(); syncHash(); }
 }
 const trackList = $("#trackList");
-TRACKS.forEach((tr, i) => {
+STATIONS.forEach((tr, i) => {
   const b = document.createElement("button");
   b.className = "track" + (i === 0 ? " on" : "");
-  b.innerHTML = `<span>♪</span><span>${tr.title}<small>${tr.sub}</small></span>`;
-  b.onclick = () => { ensureAudio(); setTrack(i); };
+  b.innerHTML = `<span>${tr.live ? '<i class="live-dot"></i>' : "♪"}</span><span>${tr.title}<small>${tr.sub}</small></span>`;
+  b.onclick = () => setTrack(i);
   trackList.appendChild(b);
 });
+radioEl.addEventListener("playing", () => setRadioStatus(""));
+radioEl.addEventListener("waiting", () => { if (musicOn) setRadioStatus("buffering…"); });
+radioEl.addEventListener("error", () => { if (musicOn) setRadioStatus("stream hiccup — try another station"); });
 function toggleMusic(force) {
-  ensureAudio();
-  musicOn = force ?? !musicOn;
-  $("#btnMusic").textContent = musicOn ? "⏸ pause den radio" : "▶ play den radio";
-  $("#btnMusic").classList.toggle("playing", musicOn);
-  if (musicOn) { nextT = AC.currentTime + .1; clearInterval(schedTimer); schedTimer = setInterval(scheduler, 180); }
-  else clearInterval(schedTimer);
+  const want = force ?? !musicOn;
+  if (!want) { stopRadio(); return; }
+  const st = currentStation();
+  if (st.live) {
+    try { radioEl.pause(); } catch {}
+    clearInterval(schedTimer);
+    radioEl.src = `https://ice1.somafm.com/${st.id}-128-mp3`;
+    radioEl.volume = $("#musicVol").value / 100;
+    setRadioStatus("tuning…");
+    musicOn = true; paintMusicBtn();
+    radioEl.play().then(() => setRadioStatus("")).catch(() => setRadioStatus("tap play to start the stream"));
+  } else {
+    try { radioEl.pause(); } catch {}
+    ensureAudio();
+    nextT = AC.currentTime + .1; clearInterval(schedTimer); schedTimer = setInterval(scheduler, 180);
+    musicOn = true; paintMusicBtn();
+  }
+  syncHash();
 }
 $("#btnMusic").onclick = () => toggleMusic();
-$("#btnPrev").onclick = () => { ensureAudio(); setTrack(trackIdx - 1); };
-$("#btnNext").onclick = () => { ensureAudio(); setTrack(trackIdx + 1); };
-$("#musicVol").oninput = (e) => { if (musicBus) musicBus.gain.value = e.target.value / 100; };
+$("#btnPrev").onclick = () => setTrack(trackIdx - 1);
+$("#btnNext").onclick = () => setTrack(trackIdx + 1);
+$("#musicVol").oninput = (e) => {
+  radioEl.volume = e.target.value / 100;
+  if (musicBus) musicBus.gain.value = e.target.value / 100;
+};
 
 /* ============ PRESETS (one-tap moods) ============ */
 const PRESETS = [
-  { id: "focus", name: "📚 Deep Focus", sub: "loft + rain + brown", scene: "loft", sounds: { rain: 60, brown: 55 }, track: 0 },
+  { id: "focus", name: "📚 Deep Focus", sub: "loft + rain + soul", scene: "loft", sounds: { rain: 60, brown: 55 }, track: 0 },
   { id: "storm", name: "⛈ Thunderstorm", sub: "tokyo + heavy rain", scene: "tokyo", sounds: { rain: 85, thunder: 70 }, track: 0 },
-  { id: "cozy", name: "🔥 Cozy Night", sub: "cabin + fireplace", scene: "cabin", sounds: { fire: 75, night: 35 }, track: 4 },
-  { id: "cafe", name: "☕ Café Morning", sub: "café + birds", scene: "cafe", sounds: { cafe: 70, birds: 45 }, track: 1 },
+  { id: "cozy", name: "🔥 Cozy Night", sub: "cabin + fireplace", scene: "cabin", sounds: { fire: 75, night: 35 }, track: 3 },
+  { id: "cafe", name: "☕ Café Morning", sub: "café + 70s", scene: "cafe", sounds: { cafe: 70, birds: 45 }, track: 1 },
   { id: "forest", name: "🍃 Forest Bath", sub: "woods + wind", scene: "forest", sounds: { wind: 65, birds: 40 }, track: 4 },
-  { id: "sleep", name: "🌙 Deep Sleep", sub: "cosmos + ocean", scene: "cosmos", sounds: { ocean: 60, night: 30, white: 25 }, track: 4 },
+  { id: "sleep", name: "🌙 Deep Sleep", sub: "cosmos + ocean", scene: "cosmos", sounds: { ocean: 60, night: 30, white: 25 }, track: 5 },
 ];
 const presetGrid = $("#presetGrid");
 PRESETS.forEach((p) => {
@@ -848,17 +876,19 @@ $$(".sleep-row button").forEach((b) => b.onclick = () => {
   drawSleep();
 });
 function fadeToSleep() {
-  if (!AC) return;
-  const t = AC.currentTime;
-  master.gain.cancelScheduledValues(t);
-  master.gain.setValueAtTime(master.gain.value, t);
-  master.gain.linearRampToValueAtTime(0, t + 8);
-  setTimeout(() => {
-    toggleMusic(false);
-    Object.keys(ambNodes).forEach((k) => { if (ambNodes[k].on) setAmbient(k, false); });
-    master.gain.setValueAtTime(.9, AC.currentTime);
-    $("#quoteText").textContent = "“goodnight — the den will keep watch ✦”";
-  }, 8500);
+  stopRadio();
+  Object.keys(ambNodes).forEach((k) => {
+    const n = ambNodes[k]; if (!n.on) return;
+    if (n.kind === "file") stopFileLayer(k, 8000, () => { n.on = false; markChip(k, "on", false); });
+    else if (n.kind === "oneshot") { clearTimeout(n.timer); n.on = false; markChip(k, "on", false); }
+    else if (n.gain && AC) {
+      n.gain.gain.cancelScheduledValues(AC.currentTime);
+      n.gain.gain.linearRampToValueAtTime(0, AC.currentTime + 8);
+      setTimeout(() => { n.on = false; markChip(k, "on", false); }, 8200);
+    } else { n.on = false; markChip(k, "on", false); }
+  });
+  syncHash();
+  setTimeout(() => { $("#quoteText").textContent = "“goodnight — the den will keep watch ✦”"; }, 8500);
 }
 drawSleep();
 
@@ -919,7 +949,7 @@ function loadHash() {
       }
     });
     const m = parseInt(q.get("m") || "0", 10);
-    if (!isNaN(m)) { trackIdx = m; step = 0; $$(".track").forEach((el, k) => el.classList.toggle("on", k === trackIdx)); }
+    if (!isNaN(m) && m >= 0 && m < STATIONS.length) { trackIdx = m; step = 0; $$(".track").forEach((el, k) => el.classList.toggle("on", k === trackIdx)); paintMusicBtn(); }
     return true;
   } catch { return false; }
 }

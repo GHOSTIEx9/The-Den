@@ -147,6 +147,13 @@ input[type=range]{accent-color:var(--amber);width:76px;cursor:pointer}
 #taskList .del{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px}
 #taskList .del:hover{color:#ff9a8a}
 .hidden{display:none!important}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff5a5a;box-shadow:0 0 8px #ff5a5a;animation:pulse 1.6s infinite}
+.live-badge{display:inline-block;font-size:10px;letter-spacing:2px;background:#ff5a5a;color:#fff;border-radius:6px;padding:2px 7px;margin-right:6px;vertical-align:2px}
+.radio-status{font-size:12px;color:var(--amber);min-height:16px;margin-top:6px;text-align:center}
+.chip.loading{opacity:.55}
+.chip.loading b{background:var(--amber);animation:pulse .9s infinite}
+.chip.error{border-color:#ff7a7a}
+.chip.error b{background:#ff7a7a}
 
 /* modals */
 .modal{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(8,6,5,.55);backdrop-filter:blur(8px);pointer-events:auto;padding:18px}
