@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>the den — focus, rest, dream</title>
+<meta name="description" content="the den — a cozy lofi hideout with 10 live animated sceneries, layered soothing sounds, copyright-free music, focus timer, tasks and streaks." />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="apple-touch-icon" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,300;1,9..144,400;1,9..144,600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<canvas id="scene" aria-hidden="true"></canvas>
+<div class="vignette" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="logo.svg" alt="the den logo" class="brand-logo" />
+  </div>
+  <div class="top-center">
+    <button id="timerPill" class="timer-pill" title="Open timer">
+      <span class="dot"></span>
+      <span id="pillTime">25:00</span>
+      <span id="pillLabel" class="pill-label">focus</span>
+    </button>
+    <div id="streakPill" class="streak-pill" title="Your focus streak">🔥 0 · 0 today</div>
+  </div>
+  <nav class="top-actions">
+    <button id="btnScenes" class="icon-btn active" title="Scenes">✦ <span>scenes</span></button>
+    <button id="btnMixer" class="icon-btn active" title="Sounds">〜 <span>sounds</span></button>
+    <button id="btnTasks" class="icon-btn" title="Tasks">✓ <span>tasks</span></button>
+    <button id="btnTimer" class="icon-btn" title="Timer">◷ <span>timer</span></button>
+    <button id="btnShare" class="icon-btn" title="Copy share link">⧉ <span>share</span></button>
+    <button id="btnHide" class="icon-btn" title="Hide UI (H)">⤢ <span>hide</span></button>
+  </nav>
+</header>
+
+<main id="ui">
+  <!-- LEFT: presets + scenes -->
+  <aside id="scenesPanel" class="panel left">
+    <p class="eyebrow">one-tap moods</p>
+    <h2>How do you<br /><em>feel?</em></h2>
+    <div id="presetGrid" class="preset-grid"></div>
+    <p class="eyebrow" style="margin-top:16px">live scenery · 10</p>
+    <div id="sceneGrid" class="scene-grid"></div>
+    <div class="panel-note">Every scene is painted live in code — rain, embers, neon &amp; tides. No videos, no loops.</div>
+  </aside>
+
+  <!-- RIGHT: mixer -->
+  <aside id="mixerPanel" class="panel right">
+    <p class="eyebrow">soothing sounds</p>
+    <h2>Mix the<br /><em>atmosphere.</em></h2>
+    <div id="mixerGroup" class="mixer-group"></div>
+
+    <p class="eyebrow" style="margin-top:18px">music — free &amp; copyright-safe</p>
+    <div id="trackList" class="tracks"></div>
+    <div class="music-controls">
+      <button id="btnPrev" class="mini-btn">⏮</button>
+      <button id="btnMusic" class="play-btn">▶ play den radio</button>
+      <button id="btnNext" class="mini-btn">⏭</button>
+      <input id="musicVol" type="range" min="0" max="100" value="70" title="music volume" />
+    </div>
+
+    <p class="eyebrow" style="margin-top:18px">sleep timer</p>
+    <div class="sleep-row">
+      <button data-sleep="0" class="on">off</button>
+      <button data-sleep="15">15m</button>
+      <button data-sleep="30">30m</button>
+      <button data-sleep="60">60m</button>
+      <span id="sleepLeft"></span>
+    </div>
+    <p class="tiny">All music is synthesized live in your browser (lofi engine + public-domain classics). No copyright strikes. Sleep &amp; study safe.</p>
+  </aside>
+
+  <!-- BOTTOM: quote + tasks -->
+  <section id="bottomDock">
+    <div class="quote"><span id="quoteText">“almost everything will work again if you unplug it for a few minutes — including you.”</span></div>
+    <div id="taskCard" class="task-card">
+      <div class="task-head">
+        <span>✓ today's focus</span>
+        <span id="taskCount"></span>
+      </div>
+      <div class="task-add">
+        <input id="taskInput" type="text" placeholder="one thing that matters…" maxlength="80" />
+        <button id="taskAdd">+</button>
+      </div>
+      <ul id="taskList"></ul>
+    </div>
+  </section>
+
+  <!-- TIMER modal -->
+  <div id="timerModal" class="modal hidden">
+    <div class="sheet">
+      <button class="x" data-close>✕</button>
+      <p class="eyebrow">the den timer</p>
+      <h2>Study <em>with rhythm.</em></h2>
+      <div class="ring-wrap">
+        <svg viewBox="0 0 200 200" class="ring">
+          <circle cx="100" cy="100" r="86" class="bg"/>
+          <circle id="ringFg" cx="100" cy="100" r="86" class="fg"/>
+        </svg>
+        <div class="ring-center">
+          <div id="bigTime">25:00</div>
+          <div id="bigLabel">focus</div>
+        </div>
+      </div>
+      <div class="presets">
+        <button data-preset="15">15</button>
+        <button data-preset="25" class="on">25</button>
+        <button data-preset="50">50</button>
+        <button data-preset="90">90</button>
+      </div>
+      <div class="modes">
+        <button data-mode="focus" class="on">focus</button>
+        <button data-mode="short">short break · 5</button>
+        <button data-mode="long">long break · 15</button>
+      </div>
+      <div class="timer-btns">
+        <button id="btnStart" class="primary">start focusing</button>
+        <button id="btnReset" class="ghost">reset</button>
+      </div>
+      <label class="chime"><input type="checkbox" id="chkChime" checked /> soft chime when done</label>
+    </div>
+  </div>
+
+  <!-- WELCOME -->
+  <div id="welcome" class="modal">
+    <div class="sheet welcome-sheet">
+      <img src="logo.svg" alt="the den" class="welcome-logo" />
+      <h1>Welcome to <em>the den.</em></h1>
+      <p>Your lofi hideout for studying &amp; sleeping. Pick a mood or a live scenery, layer rain + fireplace, press play — everything runs locally and stays private.</p>
+      <ul class="feat">
+        <li>✦ 10 live hand-coded sceneries</li>
+        <li>〜 10 layerable sounds + copyright-free radio</li>
+        <li>◷ pomodoro timer + sleep fade-out</li>
+        <li>✓ tasks, streaks &amp; shareable setups</li>
+      </ul>
+      <button id="btnEnter" class="primary big">curl up inside →</button>
+      <p class="tiny">Tip: press <b>H</b> anytime to hide the UI and just be in the scene.</p>
+    </div>
+  </div>
+
+  <button id="showUi" class="hidden">show ui</button>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

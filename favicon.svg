@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="#171210"/>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="none" stroke="#E8A04C" stroke-width="2.5"/>
+  <!-- den arch -->
+  <path d="M18 44 V32 C18 23 24 17 32 17 C40 17 46 23 46 32 V44 Z" fill="#2A201A" stroke="#F5EAD9" stroke-width="2.4" stroke-linejoin="round"/>
+  <!-- moon -->
+  <circle cx="37.5" cy="27" r="5.2" fill="#F5EAD9"/>
+  <circle cx="35.6" cy="25.8" r="4.2" fill="#2A201A"/>
+  <!-- hills / blanket -->
+  <path d="M18 38 Q24 34 29 38 T40 38 T46 37 V44 H18 Z" fill="#E8A04C"/>
+  <!-- lamp glow -->
+  <circle cx="24" cy="31" r="2.2" fill="#FFD9A0"/>
+  <rect x="23.2" y="33.5" width="1.6" height="5" rx="0.8" fill="#F5EAD9"/>
+  <!-- book -->
+  <rect x="30" y="39.5" width="8" height="2.4" rx="1" fill="#F5EAD9"/>
+</svg>
